@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Engagement } from '../../schemas/engagement';
+import { useCallback, useState } from 'react';
+import { Engagement, EngagementStatus } from '../../schemas/engagement';
 import {
   AlertType,
   IFeedbackContext,
@@ -11,17 +11,30 @@ export interface EngagementCollectionHookParameters {
   filter?: EngagementCollectionFilter;
   engagementService: EngagementService;
 }
-interface EngagementCollectionFilter {}
+export interface EngagementCollectionFilter {
+  engagementRegions?: string[];
+  engagementStatuses?: EngagementStatus[];
+  startDate?: Date;
+  endDate?: Date;
+  include?: Array<keyof Engagement>;
+  exclude?: Array<keyof Engagement>;
+}
 export const useEngagementCollection = ({
   feedbackContext,
   filter,
   engagementService,
 }: EngagementCollectionHookParameters) => {
   const [engagements, setEngagements] = useState<Partial<Engagement>[]>([]);
-  const getEngagements = async () => {
+  const getEngagements = useCallback(async () => {
     feedbackContext?.showLoader();
     try {
-      const engagements = await engagementService.fetchEngagements();
+      const engagements = await engagementService.fetchEngagements({
+        endDate: filter?.endDate,
+        startDate: filter?.startDate,
+        engagementStatuses: filter?.engagementStatuses,
+        regions: filter?.engagementRegions,
+        include: filter?.include,
+      });
       setEngagements(engagements);
     } catch (e) {
       feedbackContext?.showAlert(
@@ -32,10 +45,14 @@ export const useEngagementCollection = ({
     } finally {
       feedbackContext?.hideLoader();
     }
-  };
-  const fetchEngagementsWithParameters = () => {
-    // TODO: Implement filters here
-    getEngagements();
-  };
-  return { getEngagements: fetchEngagementsWithParameters, engagements };
+  }, [
+    engagementService,
+    filter?.startDate,
+    filter?.endDate,
+    filter?.include,
+    filter?.engagementStatuses,
+    filter?.engagementRegions,
+    feedbackContext,
+  ]);
+  return { getEngagements, engagements };
 };
